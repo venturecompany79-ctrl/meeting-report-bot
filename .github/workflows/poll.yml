@@ -1,0 +1,36 @@
+name: Meeting Report Bot
+
+on:
+  schedule:
+    # 30분마다 실행 (UTC 기준)
+    - cron: '*/30 * * * *'
+  workflow_dispatch:  # 수동 실행 버튼 활성화
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore token.json from secret
+        run: echo '${{ secrets.TOKEN_JSON }}' > token.json
+
+      - name: Run bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INBOX_FOLDER_ID: ${{ secrets.INBOX_FOLDER_ID }}
+          PROCESSING_FOLDER_ID: ${{ secrets.PROCESSING_FOLDER_ID }}
+          DONE_FOLDER_ID: ${{ secrets.DONE_FOLDER_ID }}
+          ERROR_FOLDER_ID: ${{ secrets.ERROR_FOLDER_ID }}
+        run: python src/main.py
