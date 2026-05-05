@@ -27,7 +27,6 @@ def main():
         files = drive.list_files_in_folder(fid)
         file_map = {f['name']: f for f in files}
 
-        # meeting.txt, company.pdf 둘 다 있어야 처리
         if 'meeting.txt' not in file_map or 'company.pdf' not in file_map:
             print(f"⏭ 스킵 ({name}): meeting.txt 또는 company.pdf 없음")
             continue
@@ -41,37 +40,29 @@ def main():
                 pdf_path  = os.path.join(tmpdir, 'company.pdf')
                 docx_path = os.path.join(tmpdir, 'meeting-report.docx')
 
-                # 파일 다운로드
                 print(f"  📥 파일 다운로드 중...")
                 drive.download_file(file_map['meeting.txt']['id'], txt_path)
                 drive.download_file(file_map['company.pdf']['id'], pdf_path)
 
-                # 파싱
                 print(f"  📄 파일 파싱 중...")
                 meeting_text = read_txt(txt_path)
                 company_text = extract_pdf_text(pdf_path)
 
-                # Gemini로 보고서 생성
                 print(f"  🤖 Gemini 보고서 생성 중...")
                 report_data = generate_report(meeting_text, company_text)
 
-                # .docx 생성
                 print(f"  📝 .docx 생성 중...")
                 build_docx(report_data, docx_path)
 
-                # Drive에 업로드
                 print(f"  📤 Drive 업로드 중...")
                 drive.upload_file(docx_path, fid, 'meeting-report.docx')
 
-            # done으로 이동
             drive.move_folder(fid, DONE_ID)
             print(f"✅ 완료: {name}")
 
         except Exception as e:
             error_msg = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
             print(f"❌ 오류 ({name}): {error_msg}")
-
-            # error.log 업로드 후 error 폴더로 이동
             drive.upload_text_file(error_msg, fid, 'error.log')
             drive.move_folder(fid, ERROR_ID)
 

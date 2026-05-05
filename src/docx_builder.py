@@ -530,7 +530,12 @@ def build_docx(report_data, output_path):
     cover = report_data.get('cover', {})
     add_cover_page(doc, cover)
 
-    # 2. 보고서 정보 (메타 테이블)
+    # 2. EXECUTIVE SUMMARY (있으면)
+    exec_summary = report_data.get('executive_summary')
+    if exec_summary:
+        render_executive_summary(doc, exec_summary)
+
+    # 3. 보고서 정보 (메타 테이블)
     meta = report_data.get('meta_table', [])
     if meta:
         eyebrow(doc, "REPORT INFORMATION")
@@ -538,7 +543,7 @@ def build_docx(report_data, output_path):
         accent_bar(doc)
         data_table(doc, ["항목", "내용"], meta)
 
-    # 3. 섹션들
+    # 4. 섹션들
     for section in report_data.get('sections', []):
         render_section(doc, section)
 
@@ -549,3 +554,21 @@ def build_docx(report_data, output_path):
 
     doc.save(output_path)
     print(f"✅ .docx 생성 완료: {output_path}")
+
+
+# ================ EXECUTIVE SUMMARY 전용 렌더링 ================
+def render_executive_summary(doc, exec_data):
+    """EXECUTIVE SUMMARY: eyebrow → H1 → accent bar → intro → kpi_strip → callout"""
+    if not exec_data:
+        return
+    if exec_data.get('eyebrow'):
+        eyebrow(doc, exec_data['eyebrow'])
+    if exec_data.get('title'):
+        h1(doc, exec_data['title'])
+    accent_bar(doc)
+    if exec_data.get('intro'):
+        body(doc, exec_data['intro'])
+    if exec_data.get('kpi'):
+        kpi_strip(doc, exec_data['kpi'])
+    if exec_data.get('key_takeaway'):
+        callout(doc, "KEY TAKEAWAY", exec_data['key_takeaway'])
