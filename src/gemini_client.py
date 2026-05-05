@@ -8,7 +8,7 @@ def load_template(filename):
         return f.read()
 
 def generate_report(meeting_text, company_text):
-    api_key = os.environ['AIzaSyDfpzso_godlU_3FSy24_qTGvE2nfdTlHw']
+    api_key = os.environ['GEMINI_API_KEY']
     client = genai.Client(api_key=api_key)
 
     report_template = load_template('report.md')
