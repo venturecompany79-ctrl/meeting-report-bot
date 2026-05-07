@@ -6,6 +6,7 @@ from drive_client import DriveClient
 from file_parser import read_txt, extract_pdf_text
 from gemini_client import generate_report
 from docx_builder import build_docx
+from mailer import send_completion_email
 
 INBOX_ID       = os.environ['INBOX_FOLDER_ID']
 PROCESSING_ID  = os.environ['PROCESSING_FOLDER_ID']
@@ -58,6 +59,8 @@ def main():
                 drive.upload_file(docx_path, fid, 'meeting-report.docx')
 
             drive.move_folder(fid, DONE_ID)
+		drive_link = f"https://drive.google.com/drive/folders/{DONE_ID}"
+                send_completion_email(name, 'meeting-report.docx', drive_link)
             print(f"✅ 완료: {name}")
 
         except Exception as e:
