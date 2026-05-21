@@ -60,3 +60,10 @@ class DriveClient:
             tmp_path = f.name
         self.upload_file(tmp_path, folder_id, filename)
         os.unlink(tmp_path)
+
+    def share_anyone_with_link(self, file_id):
+        self.service.permissions().create(
+            fileId=file_id,
+            body={'type': 'anyone', 'role': 'reader'},
+            fields='id'
+        ).execute()

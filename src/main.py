@@ -7,11 +7,13 @@ from file_parser import read_txt, extract_pdf_text
 from gemini_client import generate_report
 from docx_builder import build_docx
 from mailer import send_completion_email
+from notion_client import create_meeting_subpage
 
-INBOX_ID       = os.environ['INBOX_FOLDER_ID']
-PROCESSING_ID  = os.environ['PROCESSING_FOLDER_ID']
-DONE_ID        = os.environ['DONE_FOLDER_ID']
-ERROR_ID       = os.environ['ERROR_FOLDER_ID']
+INBOX_ID            = os.environ['INBOX_FOLDER_ID']
+PROCESSING_ID       = os.environ['PROCESSING_FOLDER_ID']
+DONE_ID             = os.environ['DONE_FOLDER_ID']
+ERROR_ID            = os.environ['ERROR_FOLDER_ID']
+NOTION_PARENT_ID    = os.environ.get('NOTION_PARENT_PAGE_ID', '')
 
 def main():
     drive = DriveClient()
@@ -56,11 +58,33 @@ def main():
                 build_docx(report_data, docx_path)
 
                 print(f"  📤 Drive 업로드 중...")
-                drive.upload_file(docx_path, fid, 'meeting-report.docx')
+                upload_result = drive.upload_file(docx_path, fid, 'meeting-report.docx')
+                docx_file_id = upload_result.get('id', '')
 
             drive.move_folder(fid, DONE_ID)
             drive_link = f"https://drive.google.com/drive/folders/{DONE_ID}"
-            send_completion_email(name, 'meeting-report.docx', drive_link)
+            meeting_folder_url = f"https://drive.google.com/drive/folders/{fid}"
+
+            notion_link = ""
+            if NOTION_PARENT_ID:
+                try:
+                    print(f"  📝 Notion 페이지 생성 중...")
+                    docx_external_url = ""
+                    if docx_file_id:
+                        drive.share_anyone_with_link(docx_file_id)
+                        docx_external_url = f"https://drive.google.com/uc?export=download&id={docx_file_id}"
+                    notion_link = create_meeting_subpage(
+                        parent_page_id=NOTION_PARENT_ID,
+                        meeting_name=name,
+                        drive_folder_url=meeting_folder_url,
+                        docx_external_url=docx_external_url,
+                        docx_filename='meeting-report.docx',
+                        report_data=report_data,
+                    )
+                except Exception as ne:
+                    print(f"⚠️ Notion 업데이트 실패 ({name}): {type(ne).__name__}: {ne}")
+
+            send_completion_email(name, 'meeting-report.docx', drive_link, notion_link)
             print(f"✅ 완료: {name}")
 
         except Exception as e:

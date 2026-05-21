@@ -6,13 +6,25 @@
 ## 워크플로우
 
 1. 영업사원이 Drive `inbox/날짜_회사명/` 폴더에 `meeting.txt`와 `company.pdf` 업로드
-2. GitHub Actions가 30분마다 폴링
+2. GitHub Actions가 매시간 폴링
 3. Gemini로 보고서 생성 → .docx 변환
 4. `done/` 폴더로 결과물 이동
+5. 완료 메일 발송 + Notion `Meeting-bot` 페이지에 하위 서브페이지 생성
 
 ## 기술 스택
 
 - Google Drive API (OAuth 인증)
-- Gemini 2.5 Flash (LLM)
+- Gemini 2.5 Pro (LLM)
 - python-docx (보고서 생성)
+- Notion API (보고서 아카이브)
 - GitHub Actions (스케줄링)
+
+## Notion 연동 설정 (1회)
+
+1. https://www.notion.so/profile/integrations 에서 internal integration 생성 → secret 복사
+2. Notion에서 `Meeting-bot` 페이지를 열고 우측 상단 `...` → `Connections` → 위에서 만든 integration 연결
+3. GitHub repo Settings → Secrets and variables → Actions에 추가:
+   - `NOTION_TOKEN` = integration secret
+   - `NOTION_PARENT_PAGE_ID` = `Meeting-bot` 페이지의 32자 ID (URL 마지막 부분)
+
+`NOTION_PARENT_PAGE_ID`가 비어 있으면 Notion 단계는 건너뜁니다 (보고서·메일은 정상 동작).

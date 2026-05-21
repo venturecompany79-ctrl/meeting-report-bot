@@ -4,10 +4,19 @@ from email.mime.text import MIMEText
 import os
 from datetime import datetime
 
-def send_completion_email(company_name: str, report_filename: str, drive_link: str):
+def send_completion_email(company_name: str, report_filename: str, drive_link: str, notion_link: str = ""):
     gmail_user = os.environ["GMAIL_USER"]
     gmail_password = os.environ["GMAIL_APP_PASSWORD"]
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    notion_button = ""
+    if notion_link:
+        notion_button = (
+            f'<a href="{notion_link}" style="background: #30A3DA; color: white; padding: 12px 24px; '
+            'text-decoration: none; border-radius: 4px; display: inline-block; margin-bottom: 32px; margin-left: 8px;">'
+            '📝 Notion에서 보기'
+            '</a>'
+        )
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"[Meeting Report Bot] 보고서 생성 완료 — {company_name}"
@@ -36,7 +45,7 @@ def send_completion_email(company_name: str, report_filename: str, drive_link: s
       </table>
       <a href="{drive_link}" style="background: #163E93; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin-bottom: 32px;">
         📂 Drive에서 보고서 열기
-      </a>
+      </a>{notion_button}
       <p style="color: #aaa; font-size: 11px; border-top: 1px solid #eee; padding-top: 16px;">© 2026 venturecompany. Meeting Report Bot</p>
     </body></html>
     """
