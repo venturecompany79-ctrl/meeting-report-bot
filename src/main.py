@@ -59,8 +59,8 @@ def main():
                 drive.upload_file(docx_path, fid, 'meeting-report.docx')
 
             drive.move_folder(fid, DONE_ID)
-		drive_link = f"https://drive.google.com/drive/folders/{DONE_ID}"
-                send_completion_email(name, 'meeting-report.docx', drive_link)
+            drive_link = f"https://drive.google.com/drive/folders/{DONE_ID}"
+            send_completion_email(name, 'meeting-report.docx', drive_link)
             print(f"✅ 완료: {name}")
 
         except Exception as e:
