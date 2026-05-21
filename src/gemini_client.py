@@ -191,8 +191,9 @@ def generate_report(meeting_text, company_text):
 미팅 녹취록을 깊이 분석하여 위 모든 원칙을 준수한 컨설팅 진단 보고서 JSON을 출력하세요.
 """
 
+    model = os.environ.get('GEMINI_MODEL', '').strip() or 'gemini-2.5-flash'
     response = client.models.generate_content(
-        model='gemini-2.5-pro',
+        model=model,
         contents=prompt
     )
 
