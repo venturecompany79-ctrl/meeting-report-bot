@@ -1,6 +1,17 @@
 import os, json, re
 from google import genai
 
+
+def _strip_markdown_bold(obj):
+    """Recursively remove ** markdown bold markers from every string value."""
+    if isinstance(obj, str):
+        return obj.replace('**', '')
+    if isinstance(obj, dict):
+        return {k: _strip_markdown_bold(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_strip_markdown_bold(v) for v in obj]
+    return obj
+
 def load_template(filename):
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(base_dir, 'templates', filename)
@@ -204,7 +215,7 @@ def generate_report(meeting_text, company_text):
         raw = re.sub(r'\s*```$', '', raw)
 
     try:
-        return json.loads(raw)
+        return _strip_markdown_bold(json.loads(raw))
     except json.JSONDecodeError as e:
         print(f"⚠️ JSON 파싱 실패: {e}")
         print(f"--- Gemini 응답 (처음 800자) ---")
