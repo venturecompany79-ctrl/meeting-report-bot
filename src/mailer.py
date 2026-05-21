@@ -5,8 +5,13 @@ import os
 from datetime import datetime
 
 def send_completion_email(company_name: str, report_filename: str, drive_link: str, notion_link: str = ""):
-    gmail_user = os.environ["GMAIL_USER"]
-    gmail_password = os.environ["GMAIL_APP_PASSWORD"]
+    gmail_user = os.environ["GMAIL_USER"].strip()
+    raw_password = os.environ["GMAIL_APP_PASSWORD"]
+    # Gmail displays app passwords with spaces; strip every kind of whitespace
+    # incl. NBSP/zero-width that can sneak in via copy-paste.
+    gmail_password = raw_password
+    for ws in (' ', '\t', '\n', '\r', '\xa0', '​'):
+        gmail_password = gmail_password.replace(ws, '')
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     notion_button = ""

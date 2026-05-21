@@ -84,7 +84,10 @@ def main():
                 except Exception as ne:
                     print(f"⚠️ Notion 업데이트 실패 ({name}): {type(ne).__name__}: {ne}")
 
-            send_completion_email(name, 'meeting-report.docx', drive_link, notion_link)
+            try:
+                send_completion_email(name, 'meeting-report.docx', drive_link, notion_link)
+            except Exception as me:
+                print(f"⚠️ 메일 발송 실패 ({name}): {type(me).__name__}: {me}")
             print(f"✅ 완료: {name}")
 
         except Exception as e:
