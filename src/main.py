@@ -30,8 +30,15 @@ def main():
         files = drive.list_files_in_folder(fid)
         file_map = {f['name']: f for f in files}
 
-        if 'meeting.txt' not in file_map or 'company.pdf' not in file_map:
-            print(f"⏭ 스킵 ({name}): meeting.txt 또는 company.pdf 없음")
+        # meeting.txt 또는 meeting.pdf 검색
+        meeting_file = None
+        if 'meeting.txt' in file_map:
+            meeting_file = file_map['meeting.txt']
+        elif 'meeting.pdf' in file_map:
+            meeting_file = file_map['meeting.pdf']
+
+        if not meeting_file or 'company.pdf' not in file_map:
+            print(f"⏭ 스킵 ({name}): meeting.txt/pdf 또는 company.pdf 없음")
             continue
 
         print(f"▶ 처리 시작: {name}")
@@ -39,16 +46,20 @@ def main():
 
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                txt_path  = os.path.join(tmpdir, 'meeting.txt')
+                meeting_filename = meeting_file['name']
+                meeting_path = os.path.join(tmpdir, meeting_filename)
                 pdf_path  = os.path.join(tmpdir, 'company.pdf')
                 docx_path = os.path.join(tmpdir, 'meeting-report.docx')
 
                 print(f"  📥 파일 다운로드 중...")
-                drive.download_file(file_map['meeting.txt']['id'], txt_path)
+                drive.download_file(meeting_file['id'], meeting_path)
                 drive.download_file(file_map['company.pdf']['id'], pdf_path)
 
                 print(f"  📄 파일 파싱 중...")
-                meeting_text = read_txt(txt_path)
+                if meeting_filename.lower().endswith('.pdf'):
+                    meeting_text = extract_pdf_text(meeting_path)
+                else:
+                    meeting_text = read_txt(meeting_path)
                 company_text = extract_pdf_text(pdf_path)
 
                 print(f"  🤖 Gemini 보고서 생성 중...")
