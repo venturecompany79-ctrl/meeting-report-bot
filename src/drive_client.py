@@ -1,33 +1,19 @@
-import base64, json, os
-from google.oauth2 import service_account
+import os
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
-SA_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'service-account.json')
-
-
-def _load_sa_info():
-    sa_b64 = os.environ.get('SERVICE_ACCOUNT_JSON_B64', '').strip()
-    if sa_b64:
-        return json.loads(base64.b64decode(sa_b64).decode('utf-8'))
-    sa_json = os.environ.get('SERVICE_ACCOUNT_JSON', '').strip()
-    if sa_json:
-        return json.loads(sa_json)
-    return None
-
+TOKEN_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'token.json')
 
 class DriveClient:
     def __init__(self):
-        sa_info = _load_sa_info()
-        if sa_info is not None:
-            creds = service_account.Credentials.from_service_account_info(
-                sa_info, scopes=SCOPES
-            )
-        else:
-            creds = service_account.Credentials.from_service_account_file(
-                SA_FILE, scopes=SCOPES
-            )
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            with open(TOKEN_FILE, 'w') as f:
+                f.write(creds.to_json())
         self.service = build('drive', 'v3', credentials=creds)
 
     def list_subfolders(self, parent_id):

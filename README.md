@@ -21,11 +21,10 @@
 
 ## Google Drive 연동 설정 (1회)
 
-1. Google Cloud Console에서 service account를 생성하고 JSON 키 다운로드 (이 repo의 `service-account.json` 형식)
-2. Drive의 `inbox`, `processing`, `done`, `error` 폴더 4개 각각에 service account 이메일을 **Editor** 권한으로 공유
-3. GitHub repo Settings → Secrets and variables → Actions에 `SERVICE_ACCOUNT_JSON` 추가 — JSON 파일 내용 전체를 그대로 붙여넣기
-
-Service account 인증은 7일 만료가 없어 OAuth 갱신 작업이 불필요합니다.
+1. Google Cloud Console에서 OAuth 2.0 client (Desktop app) 생성 → `credentials.json` 다운로드
+2. **OAuth consent screen → PUBLISH APP** 클릭 (개인 Gmail 가능, sensitive scope 경고는 무시 가능). 이 단계를 빠뜨리면 refresh token이 7일마다 만료됩니다
+3. 로컬에서 `python auth_setup.py` 실행 → 브라우저 동의 → `token.json` 생성
+4. GitHub repo Settings → Secrets and variables → Actions에 `TOKEN_JSON` 추가 — `token.json` 내용 전체 붙여넣기
 
 ## Notion 연동 설정 (1회)
 
