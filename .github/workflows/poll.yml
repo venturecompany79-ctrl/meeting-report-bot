@@ -1,9 +1,9 @@
 name: meeting-report-bot poll
 
 on:
-  # 15분마다 미처리 row 확인 (UTC 기준 cron, 실제 실행은 몇 분 지연될 수 있음)
+  # 매시간 정각에 미처리 row 확인 (UTC 기준 cron, 실제 실행은 몇 분 지연될 수 있음)
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "0 * * * *"
   # 수동 실행 버튼 (Actions 탭에서 "Run workflow")
   workflow_dispatch:
 
