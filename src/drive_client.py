@@ -1,4 +1,4 @@
-import json, os
+import base64, json, os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
@@ -6,12 +6,23 @@ from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SA_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'service-account.json')
 
+
+def _load_sa_info():
+    sa_b64 = os.environ.get('SERVICE_ACCOUNT_JSON_B64', '').strip()
+    if sa_b64:
+        return json.loads(base64.b64decode(sa_b64).decode('utf-8'))
+    sa_json = os.environ.get('SERVICE_ACCOUNT_JSON', '').strip()
+    if sa_json:
+        return json.loads(sa_json)
+    return None
+
+
 class DriveClient:
     def __init__(self):
-        sa_json = os.environ.get('SERVICE_ACCOUNT_JSON', '').strip()
-        if sa_json:
+        sa_info = _load_sa_info()
+        if sa_info is not None:
             creds = service_account.Credentials.from_service_account_info(
-                json.loads(sa_json), scopes=SCOPES
+                sa_info, scopes=SCOPES
             )
         else:
             creds = service_account.Credentials.from_service_account_file(
