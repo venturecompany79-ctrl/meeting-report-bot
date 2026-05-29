@@ -56,11 +56,21 @@ class NotionAPI:
         company_prop: str,
         meeting_prop: str,
     ) -> List[Dict[str, Any]]:
-        """미처리 + 두 파일이 모두 있는 row 목록."""
-        status_filter = {
-            "property": status_prop,
-            status_type: {"equals": pending_value},
-        }
+        """처리 대상 row 목록.
+
+        대상 조건: (상태 = '미처리') 또는 (상태 미설정/비어있음)  AND  회사정보·회의록 파일이 모두 첨부됨.
+        → 새 row 에 상태를 따로 지정하지 않아도 파일만 올리면 자동 처리된다.
+        (select 타입만 is_empty 지원. status 타입은 항상 값이 있으므로 equals 만 사용)
+        """
+        if status_type == "select":
+            status_filter: Dict[str, Any] = {
+                "or": [
+                    {"property": status_prop, "select": {"equals": pending_value}},
+                    {"property": status_prop, "select": {"is_empty": True}},
+                ]
+            }
+        else:
+            status_filter = {"property": status_prop, status_type: {"equals": pending_value}}
         filt = {
             "and": [
                 status_filter,
