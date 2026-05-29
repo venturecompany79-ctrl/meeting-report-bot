@@ -13,11 +13,19 @@
 
 ## 기술 스택
 
-- Google Drive API (OAuth 인증)
+- Google Drive API (Service Account 인증)
 - Gemini 2.5 Pro (LLM)
 - python-docx (보고서 생성)
 - Notion API (보고서 아카이브)
 - GitHub Actions (스케줄링)
+
+## Google Drive 연동 설정 (1회)
+
+1. Google Cloud Console에서 service account를 생성하고 JSON 키 다운로드 (이 repo의 `service-account.json` 형식)
+2. Drive의 `inbox`, `processing`, `done`, `error` 폴더 4개 각각에 service account 이메일을 **Editor** 권한으로 공유
+3. GitHub repo Settings → Secrets and variables → Actions에 `SERVICE_ACCOUNT_JSON` 추가 — JSON 파일 내용 전체를 그대로 붙여넣기
+
+Service account 인증은 7일 만료가 없어 OAuth 갱신 작업이 불필요합니다.
 
 ## Notion 연동 설정 (1회)
 
