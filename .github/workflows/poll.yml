@@ -1,0 +1,40 @@
+name: meeting-report-bot poll
+
+on:
+  # 15분마다 미처리 row 확인 (UTC 기준 cron, 실제 실행은 몇 분 지연될 수 있음)
+  schedule:
+    - cron: "*/15 * * * *"
+  # 수동 실행 버튼 (Actions 탭에서 "Run workflow")
+  workflow_dispatch:
+
+# 동시 실행 방지 (cron 이 겹쳐 두 번 처리되는 것 방지)
+concurrency:
+  group: meeting-report-bot
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot (once)
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # 선택: 모델/동작 변경 시 Repository Variables 로 덮어쓰기 가능
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          ATTACH_DOCX: ${{ vars.ATTACH_DOCX || 'true' }}
+        run: python -m src.main --once
