@@ -309,14 +309,8 @@ def data_table(doc, headers, rows):
 
 # ================ 표지 페이지 ================
 def add_cover_page(doc, cover):
-    """표지: NAVY 바 → CYAN 라인 → 제목 → 메타 정보"""
-    # 상단 NAVY 바
-    p_nav = doc.add_paragraph()
-    p_nav.paragraph_format.space_before = Pt(0)
-    p_nav.paragraph_format.space_after = Pt(0)
-    _bottom_border_paragraph(p_nav, NAVY_HEX, size="60")
-
-    # CYAN 라인
+    """표지: CYAN 라인 → 제목 → 메타 정보 (상단 검은 바 제거됨)"""
+    # CYAN 라인 (상단 NAVY/검은 바는 디자인에서 제거)
     p_cyan = doc.add_paragraph()
     p_cyan.paragraph_format.space_before = Pt(2)
     p_cyan.paragraph_format.space_after = Pt(0)
@@ -526,31 +520,40 @@ def build_docx(report_data, output_path):
     setup_page(doc)
     setup_header_footer(doc)
 
-    # 1. 표지
+    # 1. 표지 (표지 끝에서 page_break → 이후 본문은 새 페이지부터 시작)
     cover = report_data.get('cover', {})
     add_cover_page(doc, cover)
 
-    # 2. EXECUTIVE SUMMARY (있으면)
-    exec_summary = report_data.get('executive_summary')
-    if exec_summary:
-        render_executive_summary(doc, exec_summary)
-
-    # 3. 보고서 정보 (메타 테이블)
-    meta = report_data.get('meta_table', [])
-    if meta:
+    # 2. 본문 블록들 — 각 타이틀이 항상 페이지 상단에서 시작하도록 블록마다 페이지 분리
+    def _render_meta(meta_rows):
         eyebrow(doc, "REPORT INFORMATION")
         h1(doc, "보고서 정보")
         accent_bar(doc)
-        data_table(doc, ["항목", "내용"], meta)
+        data_table(doc, ["항목", "내용"], meta_rows)
 
-    # 4. 섹션들
+    blocks = []  # 렌더 함수 리스트 (순서대로 각각 새 페이지)
+
+    exec_summary = report_data.get('executive_summary')
+    if exec_summary:
+        blocks.append(lambda: render_executive_summary(doc, exec_summary))
+
+    meta = report_data.get('meta_table', [])
+    if meta:
+        blocks.append(lambda: _render_meta(meta))
+
     for section in report_data.get('sections', []):
-        render_section(doc, section)
+        blocks.append(lambda s=section: render_section(doc, s))
 
-    # 4. 마무리
     closing = report_data.get('closing')
     if closing:
-        render_section(doc, closing)
+        blocks.append(lambda: render_section(doc, closing))
+
+    # 첫 블록은 표지의 page_break 덕에 이미 새 페이지에서 시작.
+    # 두 번째 블록부터는 앞에 page_break 를 넣어 타이틀이 페이지 상단에서 시작하도록 한다.
+    for i, render in enumerate(blocks):
+        if i > 0:
+            doc.add_page_break()
+        render()
 
     doc.save(output_path)
     print(f"✅ .docx 생성 완료: {output_path}")

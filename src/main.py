@@ -15,6 +15,7 @@ import os
 import sys
 import tempfile
 import time
+import re
 import traceback
 from datetime import date
 from typing import Any, Dict
@@ -45,21 +46,34 @@ def _collect_text(notion: NotionAPI, page: Dict[str, Any], prop: str) -> str:
     return "\n\n".join(texts)
 
 
-def _attach_docx(notion: NotionAPI, schema: Dict[str, str], page_id: str, report_data: Dict[str, Any]) -> None:
+def _safe_filename(name: str) -> str:
+    """파일명에 쓸 수 없는 문자 제거 (한글·괄호 등은 유지)."""
+    name = re.sub(r'[\\/:*?"<>|\n\r\t]+', "", (name or "")).strip().strip(".")
+    return name or "보고서"
+
+
+def _report_filename(title: str) -> str:
+    """리포트 파일명: '회사명_생성일(YYMMDD).docx'  (예: (주)엘레트라_260529.docx)"""
+    return f"{_safe_filename(title)}_{date.today().strftime('%y%m%d')}.docx"
+
+
+def _attach_docx(
+    notion: NotionAPI, schema: Dict[str, str], page_id: str, report_data: Dict[str, Any], filename: str
+) -> None:
     """디자인된 .docx 를 생성해 '보고서' files 속성에 첨부 (옵션)."""
     if config.PROP_REPORT_FILE not in schema or schema[config.PROP_REPORT_FILE] != "files":
         _log(f"  · '{config.PROP_REPORT_FILE}' files 컬럼이 없어 docx 첨부 건너뜀")
         return
     with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, "meeting-report.docx")
+        path = os.path.join(tmp, filename)
         build_docx(report_data, path)
         with open(path, "rb") as f:
             data = f.read()
-    _log("  · docx 업로드 중...")
-    upload_id = notion.upload_file("meeting-report.docx", data, _DOCX_MIME)
+    _log(f"  · docx 업로드 중... ({filename})")
+    upload_id = notion.upload_file(filename, data, _DOCX_MIME)
     notion.update_properties(
         page_id,
-        {config.PROP_REPORT_FILE: notion.file_upload_property(upload_id, "meeting-report.docx")},
+        {config.PROP_REPORT_FILE: notion.file_upload_property(upload_id, filename)},
     )
 
 
@@ -88,10 +102,10 @@ def process_page(notion: NotionAPI, schema: Dict[str, str], page: Dict[str, Any]
         _log(f"  · Notion 페이지에 {len(blocks)}개 블록 작성")
         notion.append_blocks(page_id, blocks)
 
-        # (옵션) 디자인된 docx 첨부
+        # (옵션) 디자인된 docx 첨부 — 파일명: 회사명_생성일(YYMMDD).docx
         if config.ATTACH_DOCX:
             try:
-                _attach_docx(notion, schema, page_id, report_data)
+                _attach_docx(notion, schema, page_id, report_data, _report_filename(title))
             except Exception as de:  # noqa: BLE001
                 _log(f"  · docx 첨부 실패(무시): {de}")
 
