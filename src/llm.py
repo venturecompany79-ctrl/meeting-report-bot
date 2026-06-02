@@ -215,8 +215,41 @@ def generate_report(api_key: str, model: str, meeting_text: str, company_text: s
 """
 
     response = client.models.generate_content(model=model, contents=prompt)
-    raw = response.text.strip()
+    return _parse_report_json(response.text)
 
+
+def generate_summary(api_key: str, model: str, report_data: dict) -> dict:
+    """전체 보고서 JSON 을 5페이지 분량의 핵심 요약본 JSON 으로 압축."""
+    client = genai.Client(api_key=api_key)
+    full_json = json.dumps(report_data, ensure_ascii=False)
+
+    prompt = f"""아래는 전체 컨설팅 진단 보고서 JSON 입니다. 이를 **5페이지 분량의 핵심 요약본**으로 압축하세요.
+
+# 전체 보고서 JSON
+{full_json}
+
+# 요약본 작성 원칙
+- 분량: 약 5페이지 (전체 10~14페이지의 절반 수준)
+- 동일한 출력 JSON 스펙 사용: cover / executive_summary / meta_table / sections / closing
+- 컴포넌트 타입도 동일하게 사용 가능: h3, paragraph, bullets, numbered, lead_in_bullets, table, kpi_strip, callout
+- 섹션(sections)은 **가장 핵심적인 3~5개로 추리고**, 각 섹션은 간결하게 (표는 핵심 행만 유지)
+- EXECUTIVE SUMMARY(kpi_strip + KEY TAKEAWAY 콜아웃)는 반드시 포함
+- 컨설팅 제안은 핵심 1~2개만, 각 제안은 '제안/기대효과' 위주로 압축
+- CLOSING PERSPECTIVE(STRATEGIC READ 콜아웃) 포함
+- cover 의 company_name/prepared_for/prepared_by/date 는 원본 그대로 유지하되,
+  cover.subtitle 은 "핵심 요약본 (5p)" 로 설정
+- 사실/수치는 원본 보고서에 있는 것만 사용 (새로 지어내지 말 것)
+- JSON만 출력. 코드블록(```), 주석, 설명 일체 금지
+
+위 보고서를 5페이지 핵심 요약본 JSON 으로 출력하세요.
+"""
+    response = client.models.generate_content(model=model, contents=prompt)
+    return _parse_report_json(response.text)
+
+
+def _parse_report_json(text: str) -> dict:
+    """Gemini 응답 텍스트에서 보고서 JSON 을 파싱 (코드펜스 제거 + 볼드 마커 제거)."""
+    raw = (text or "").strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)

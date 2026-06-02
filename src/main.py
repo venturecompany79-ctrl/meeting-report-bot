@@ -23,7 +23,7 @@ from typing import Any, Dict
 from .config import config
 from .docx_builder import build_docx
 from .extract import extract_text
-from .llm import generate_report
+from .llm import generate_report, generate_summary
 from .notion_api import NotionAPI
 from .report import build_report_blocks
 
@@ -52,17 +52,23 @@ def _safe_filename(name: str) -> str:
     return name or "보고서"
 
 
-def _report_filename(title: str) -> str:
-    """리포트 파일명: '회사명_생성일(YYMMDD).docx'  (예: (주)엘레트라_260529.docx)"""
-    return f"{_safe_filename(title)}_{date.today().strftime('%y%m%d')}.docx"
+def _report_filename(title: str, suffix: str = "") -> str:
+    """리포트 파일명: '회사명_생성일(YYMMDD)[_접미사].docx'  (예: (주)엘레트라_260529.docx)"""
+    tail = f"_{suffix}" if suffix else ""
+    return f"{_safe_filename(title)}_{date.today().strftime('%y%m%d')}{tail}.docx"
 
 
 def _attach_docx(
-    notion: NotionAPI, schema: Dict[str, str], page_id: str, report_data: Dict[str, Any], filename: str
+    notion: NotionAPI,
+    schema: Dict[str, str],
+    page_id: str,
+    report_data: Dict[str, Any],
+    filename: str,
+    prop_name: str,
 ) -> None:
-    """디자인된 .docx 를 생성해 '보고서' files 속성에 첨부 (옵션)."""
-    if config.PROP_REPORT_FILE not in schema or schema[config.PROP_REPORT_FILE] != "files":
-        _log(f"  · '{config.PROP_REPORT_FILE}' files 컬럼이 없어 docx 첨부 건너뜀")
+    """디자인된 .docx 를 생성해 지정한 files 속성에 첨부 (옵션)."""
+    if schema.get(prop_name) != "files":
+        _log(f"  · '{prop_name}' files 컬럼이 없어 docx 첨부 건너뜀")
         return
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, filename)
@@ -73,7 +79,7 @@ def _attach_docx(
     upload_id = notion.upload_file(filename, data, _DOCX_MIME)
     notion.update_properties(
         page_id,
-        {config.PROP_REPORT_FILE: notion.file_upload_property(upload_id, filename)},
+        {prop_name: notion.file_upload_property(upload_id, filename)},
     )
 
 
@@ -105,9 +111,26 @@ def process_page(notion: NotionAPI, schema: Dict[str, str], page: Dict[str, Any]
         # (옵션) 디자인된 docx 첨부 — 파일명: 회사명_생성일(YYMMDD).docx
         if config.ATTACH_DOCX:
             try:
-                _attach_docx(notion, schema, page_id, report_data, _report_filename(title))
+                _attach_docx(
+                    notion, schema, page_id, report_data,
+                    _report_filename(title), config.PROP_REPORT_FILE,
+                )
             except Exception as de:  # noqa: BLE001
                 _log(f"  · docx 첨부 실패(무시): {de}")
+
+            # 5페이지 핵심 요약본 생성 → '보고서요약' 컬럼에 첨부
+            if schema.get(config.PROP_REPORT_SUMMARY) == "files":
+                try:
+                    _log("  · 5p 요약본 생성 중...")
+                    summary_data = generate_summary(
+                        config.GEMINI_API_KEY, config.GEMINI_MODEL, report_data
+                    )
+                    _attach_docx(
+                        notion, schema, page_id, summary_data,
+                        _report_filename(title, "요약"), config.PROP_REPORT_SUMMARY,
+                    )
+                except Exception as se:  # noqa: BLE001
+                    _log(f"  · 요약본 첨부 실패(무시): {se}")
 
         # 완료 표시 + 생성일 기록
         props: Dict[str, Any] = {

@@ -37,6 +37,7 @@ class Config:
     PROP_STATUS = os.getenv("PROP_STATUS", "상태")
     PROP_REPORT_DATE = os.getenv("PROP_REPORT_DATE", "보고서생성일")
     PROP_REPORT_FILE = os.getenv("PROP_REPORT_FILE", "보고서")
+    PROP_REPORT_SUMMARY = os.getenv("PROP_REPORT_SUMMARY", "보고서요약")
     PROP_ERROR = os.getenv("PROP_ERROR", "오류메시지")
 
     # 상태 값

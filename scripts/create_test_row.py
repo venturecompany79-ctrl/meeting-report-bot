@@ -58,7 +58,7 @@ def main() -> None:
     body = {
         "parent": {"type": "database_id", "database_id": config.NOTION_DATABASE_ID},
         "properties": {
-            "이름": {"title": [{"type": "text", "text": {"content": "(주)그린바이트 1차 미팅"}}]},
+            "회사명": {"title": [{"type": "text", "text": {"content": "(주)그린바이트 1차 미팅"}}]},
             config.PROP_COMPANY: {
                 "files": [{"type": "file_upload", "name": "company.txt", "file_upload": {"id": comp_id}}]
             },
