@@ -38,9 +38,31 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → New re
 |------|-----|
 | `NOTION_TOKEN` | Notion 통합 토큰 (`.env` 의 값) |
 | `NOTION_DATABASE_ID` | `36f67e678c5981958176f5ca459f30f4` |
-| `GEMINI_API_KEY` | Gemini API 키 |
 
-(선택) **Variables** 탭에서 `GEMINI_MODEL`, `ATTACH_DOCX` 를 추가하면 모델/동작을 바꿀 수 있습니다. 없으면 기본값(`gemini-2.5-flash`, `true`)이 쓰입니다.
+## 2-1. Claude 인증 (Workload Identity Federation)
+
+API 키 대신 GitHub OIDC 토큰으로 Claude 단기 토큰을 발급받습니다. Claude Console
+**Settings → Workload identity** 에서 아래 3가지를 만듭니다.
+
+1. **발급자(Issuer)** — 이름 `github-actions`, 발급자 URL `https://token.actions.githubusercontent.com`, JWKS 소스 `OIDC 디스커버리`
+2. **서비스 계정** — 보고서 생성용 워크스페이스의 멤버로 추가
+3. **규칙(Rule)** — 위 발급자 + 서비스 계정 연결
+   - subject: `repo:venturecompany79-ctrl/meeting-report-bot:ref:refs/heads/main`
+   - audience: `https://api.anthropic.com`
+   - claims: `repository_owner` = `venturecompany79-ctrl`
+   - OAuth scope: `workspace:inference`, 토큰 수명 600초
+
+그다음 GitHub **Variables** 탭에 ID 를 등록합니다 (비밀값이 아닌 식별자).
+
+| 이름 | 값 |
+|------|-----|
+| `ANTHROPIC_FEDERATION_RULE_ID` | `fdrl_...` |
+| `ANTHROPIC_ORGANIZATION_ID` | 조직 UUID |
+| `ANTHROPIC_SERVICE_ACCOUNT_ID` | `svac_...` |
+
+`ANTHROPIC_API_KEY` Secret 은 등록하지 마세요 (있으면 WIF 보다 우선 적용됨).
+
+(선택) **Variables** 탭에서 `CLAUDE_MODEL`, `ATTACH_DOCX` 를 추가하면 모델/동작을 바꿀 수 있습니다. 없으면 기본값(`claude-opus-5-5`, `true`)이 쓰입니다.
 
 ## 3. 동작 확인
 - 저장소 **Actions** 탭 → `meeting-report-bot poll` → **Run workflow** 로 수동 실행
@@ -57,7 +79,6 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → New re
 - 매 30분: `*/30 * * * *`
 - 매시간: `0 * * * *`
 
-## Gemini 무료 티어 주의
-- `gemini-2.5-pro` 는 무료 티어 사용 불가 → `gemini-2.5-flash` 사용 (현재 기본값)
-- 분당/일일 요청 한도가 있어, row 가 많으면 일부가 한도(429)에 걸려 `오류` 처리될 수 있음
-  → 다음 실행에서 해당 row 의 `상태` 를 `미처리` 로 되돌리면 재처리됩니다
+## Claude API 참고
+- 일시 오류(429/5xx)는 SDK 가 최대 5회 자동 재시도합니다
+- 그래도 실패한 row 는 `오류` 로 표시되며, `상태` 를 `미처리` 로 되돌리면 다음 실행에서 재처리됩니다

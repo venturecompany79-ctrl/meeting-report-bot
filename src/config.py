@@ -26,10 +26,9 @@ class Config:
     NOTION_DATABASE_ID = _require("NOTION_DATABASE_ID")
     NOTION_VERSION = "2022-06-28"
 
-    # LLM (Gemini)
-    GEMINI_API_KEY = _require("GEMINI_API_KEY")
-    # 무료 티어는 gemini-2.5-pro 불가(limit 0) → flash 기본. 유료면 pro 로 변경 가능.
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    # LLM (Claude) — 인증은 SDK 가 환경에서 자동 해석
+    # (GitHub Actions: Workload Identity Federation / 로컬: ANTHROPIC_API_KEY 또는 `ant auth login`)
+    CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5-5")
 
     # 컬럼(속성) 이름
     PROP_COMPANY = os.getenv("PROP_COMPANY", "회사정보")

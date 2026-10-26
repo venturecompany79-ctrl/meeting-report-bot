@@ -1,6 +1,6 @@
-"""Gemini 기반 컨설팅 진단 보고서(JSON) 생성.
+"""Claude 기반 컨설팅 진단 보고서(JSON) 생성.
 
-원본 meeting-report-bot 의 gemini_client.py 프롬프트/로직을 그대로 이식.
+원본 meeting-report-bot 의 gemini_client.py 프롬프트/로직을 이식 (LLM 은 Claude 로 교체).
 templates/report.md(보고서 구조) + templates/design.md(디자인 시스템) 을 프롬프트에 주입한다.
 """
 from __future__ import annotations
@@ -9,7 +9,7 @@ import json
 import os
 import re
 
-from google import genai
+import anthropic
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,15 +25,35 @@ def _strip_markdown_bold(obj):
     return obj
 
 
+def _call_claude(model: str, prompt: str, effort: str) -> str:
+    """Claude 호출 → 응답 텍스트. 긴 출력이므로 스트리밍, 일시 오류(429/5xx)는 SDK 가 재시도."""
+    # 자격 증명은 환경에서 자동 해석 (WIF 환경 변수 / ANTHROPIC_API_KEY / ant 프로필)
+    client = anthropic.Anthropic(max_retries=5)
+    with client.beta.messages.stream(
+        model=model,
+        max_tokens=64000,
+        output_config={"effort": effort},
+        # 안전 분류기가 거절하면 서버에서 권장 대체 모델로 자동 재시도
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+        messages=[{"role": "user", "content": prompt}],
+    ) as stream:
+        message = stream.get_final_message()
+
+    if message.stop_reason == "refusal":
+        raise RuntimeError(f"Claude 가 요청을 거절했습니다: {message.stop_details}")
+    if message.stop_reason == "max_tokens":
+        raise RuntimeError("Claude 응답이 max_tokens 에 도달해 잘렸습니다.")
+    return "".join(b.text for b in message.content if b.type == "text")
+
+
 def _load_template(filename: str) -> str:
     path = os.path.join(_BASE, "templates", filename)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
 
-def generate_report(api_key: str, model: str, meeting_text: str, company_text: str) -> dict:
-    client = genai.Client(api_key=api_key)
-
+def generate_report(model: str, meeting_text: str, company_text: str) -> dict:
     report_template = _load_template("report.md")
     design_guide = _load_template("design.md")
 
@@ -214,13 +234,11 @@ def generate_report(api_key: str, model: str, meeting_text: str, company_text: s
 미팅 녹취록을 깊이 분석하여 위 모든 원칙을 준수한 컨설팅 진단 보고서 JSON을 출력하세요.
 """
 
-    response = client.models.generate_content(model=model, contents=prompt)
-    return _parse_report_json(response.text)
+    return _parse_report_json(_call_claude(model, prompt, effort="high"))
 
 
-def generate_summary(api_key: str, model: str, report_data: dict) -> dict:
+def generate_summary(model: str, report_data: dict) -> dict:
     """전체 보고서 JSON 을 5페이지 분량의 핵심 요약본 JSON 으로 압축."""
-    client = genai.Client(api_key=api_key)
     full_json = json.dumps(report_data, ensure_ascii=False)
 
     prompt = f"""아래는 전체 컨설팅 진단 보고서 JSON 입니다. 이를 **5페이지 분량의 핵심 요약본**으로 압축하세요.
@@ -243,12 +261,11 @@ def generate_summary(api_key: str, model: str, report_data: dict) -> dict:
 
 위 보고서를 5페이지 핵심 요약본 JSON 으로 출력하세요.
 """
-    response = client.models.generate_content(model=model, contents=prompt)
-    return _parse_report_json(response.text)
+    return _parse_report_json(_call_claude(model, prompt, effort="medium"))
 
 
 def _parse_report_json(text: str) -> dict:
-    """Gemini 응답 텍스트에서 보고서 JSON 을 파싱 (코드펜스 제거 + 볼드 마커 제거)."""
+    """Claude 응답 텍스트에서 보고서 JSON 을 파싱 (코드펜스 제거 + 볼드 마커 제거)."""
     raw = (text or "").strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
@@ -258,7 +275,7 @@ def _parse_report_json(text: str) -> dict:
         return _strip_markdown_bold(json.loads(raw))
     except json.JSONDecodeError as e:
         print(f"⚠️ JSON 파싱 실패: {e}")
-        print("--- Gemini 응답 (처음 800자) ---")
+        print("--- Claude 응답 (처음 800자) ---")
         print(raw[:800])
         print("--- 끝 ---")
         return {

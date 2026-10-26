@@ -12,6 +12,11 @@ concurrency:
   group: meeting-report-bot
   cancel-in-progress: false
 
+# Claude API 인증: Workload Identity Federation (GitHub OIDC 토큰 → Claude 단기 토큰, API 키 불필요)
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   poll:
     runs-on: ubuntu-latest
@@ -33,8 +38,23 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # WIF 식별자 (Repository Variables 에 등록)
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: /tmp/gha-jwt
           # 선택: 모델/동작 변경 시 Repository Variables 로 덮어쓰기 가능
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'claude-opus-5-5' }}
           ATTACH_DOCX: ${{ vars.ATTACH_DOCX || 'true' }}
-        run: python -m src.main --once
+        run: |
+          fetch_token() {
+            curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://api.anthropic.com" \
+              | jq -r .value > "$ANTHROPIC_IDENTITY_TOKEN_FILE.tmp" \
+              && mv "$ANTHROPIC_IDENTITY_TOKEN_FILE.tmp" "$ANTHROPIC_IDENTITY_TOKEN_FILE"
+          }
+          fetch_token
+          # GitHub OIDC 토큰은 약 5분 만에 만료 → 처리 중 재교환에 대비해 4분마다 갱신
+          ( while sleep 240; do fetch_token; done ) &
+          trap 'kill $!' EXIT
+          python -m src.main --once

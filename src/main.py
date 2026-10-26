@@ -1,7 +1,7 @@
 """미팅 리포트 봇 진입점 (Notion 전용).
 
 Notion 데이터베이스를 주기적으로 폴링하여, '미처리' 상태이며 회사정보/회의록
-파일이 첨부된 row 를 찾아 Gemini 로 컨설팅 진단 보고서를 생성하고
+파일이 첨부된 row 를 찾아 Claude 로 컨설팅 진단 보고서를 생성하고
 해당 row 페이지 본문에 작성한다. (옵션) 디자인된 .docx 를 '보고서' 파일 컬럼에 첨부.
 
 사용법:
@@ -99,10 +99,8 @@ def process_page(notion: NotionAPI, schema: Dict[str, str], page: Dict[str, Any]
         company_text = _collect_text(notion, page, config.PROP_COMPANY)
         meeting_text = _collect_text(notion, page, config.PROP_MEETING)
 
-        _log("  · Gemini 보고서 생성 중...")
-        report_data = generate_report(
-            config.GEMINI_API_KEY, config.GEMINI_MODEL, meeting_text, company_text
-        )
+        _log("  · Claude 보고서 생성 중...")
+        report_data = generate_report(config.CLAUDE_MODEL, meeting_text, company_text)
 
         blocks = build_report_blocks(report_data)
         _log(f"  · Notion 페이지에 {len(blocks)}개 블록 작성")
@@ -122,9 +120,7 @@ def process_page(notion: NotionAPI, schema: Dict[str, str], page: Dict[str, Any]
             if schema.get(config.PROP_REPORT_SUMMARY) == "files":
                 try:
                     _log("  · 5p 요약본 생성 중...")
-                    summary_data = generate_summary(
-                        config.GEMINI_API_KEY, config.GEMINI_MODEL, report_data
-                    )
+                    summary_data = generate_summary(config.CLAUDE_MODEL, report_data)
                     _attach_docx(
                         notion, schema, page_id, summary_data,
                         _report_filename(title, "요약"), config.PROP_REPORT_SUMMARY,
